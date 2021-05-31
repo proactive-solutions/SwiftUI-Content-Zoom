@@ -2,18 +2,20 @@ import SwiftUI
 import Combine
 
 final class CenteringScrollView: UIScrollView {
+  var shouldCenter = true
+
   func centerContent() {
-    return;
     assert(subviews.count == 1)
     subviews.forEach {
       $0.center = self.center
     }
-
   }
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    centerContent()
+    if self.shouldCenter {
+      self.centerContent()
+    }
   }
 }
 
@@ -27,11 +29,11 @@ struct ZoomableScrollView<Content: View>: View {
 
   var body: some View {
     ZoomableScrollViewImpl(content: content, doubleTap: doubleTap.eraseToAnyPublisher())
-      /// The double tap gesture is a modifier on a SwiftUI wrapper view, rather than just putting a UIGestureRecognizer on the wrapped view,
-      /// because SwiftUI and UIKit gesture recognizers don't work together correctly correctly for failure and other interactions.
-//      .onTapGesture(count: 2) {
-//        doubleTap.send()
-//      }
+    /// The double tap gesture is a modifier on a SwiftUI wrapper view, rather than just putting a UIGestureRecognizer on the wrapped view,
+    /// because SwiftUI and UIKit gesture recognizers don't work together correctly correctly for failure and other interactions.
+    //      .onTapGesture(count: 2) {
+    //        doubleTap.send()
+    //      }
   }
 }
 
@@ -72,7 +74,7 @@ fileprivate struct ZoomableScrollViewImpl<Content: View>: UIViewControllerRepres
     init(coordinator: Coordinator, doubleTap: AnyPublisher<Void, Never>) {
       self.coordinator = coordinator
       super.init(nibName: nil, bundle: nil)
-      self.view = scrollView
+       self.view = scrollView
 
       scrollView.delegate = self  // for viewForZooming(in:)
       scrollView.maximumZoomScale = 1.25
@@ -99,7 +101,9 @@ fileprivate struct ZoomableScrollViewImpl<Content: View>: UIViewControllerRepres
         hostedView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
       ])
 
-      updateConstraintsCancellable = scrollView.publisher(for: \.bounds).map(\.size).removeDuplicates()
+      updateConstraintsCancellable = scrollView
+        .publisher(for: \.bounds).map(\.size)
+        .removeDuplicates()
         .sink { [unowned self] size in
           view.setNeedsUpdateConstraints()
         }
@@ -131,14 +135,17 @@ fileprivate struct ZoomableScrollViewImpl<Content: View>: UIViewControllerRepres
           x: point.x - size.width / 2,
           y: point.y - size.height / 2
         )
+        scrollView.shouldCenter = false
         scrollView.zoom(to:CGRect(origin: origin, size: size), animated: true)
       } else if scrollView.zoomScale > 1 { // zoom out
+        scrollView.shouldCenter = true
         scrollView.zoom(
           to: zoomRectForScale(
             scale: scrollView.maximumZoomScale,
             center: gesture.location(in: scrollView)),
           animated: true
         )
+
       }
     }
 
@@ -177,7 +184,9 @@ fileprivate struct ZoomableScrollViewImpl<Content: View>: UIViewControllerRepres
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
       // For some reason this is needed in both didZoom and layoutSubviews, thanks to https://medium.com/@ssamadgh/designing-apps-with-scroll-views-part-i-8a7a44a5adf7
       // Sometimes this seems to work (view animates size and position simultaneously from current position to center) and sometimes it does not (position snaps to center immediately, size change animates)
-      self.scrollView.centerContent()
+      if self.scrollView.shouldCenter {
+        self.scrollView.centerContent()
+      }
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {

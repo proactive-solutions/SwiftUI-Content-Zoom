@@ -9,13 +9,9 @@ import SwiftUI
 
 struct ContentView: View {
   var body: some View {
-      VStack {
-        ZoomableScrollView {
-          Image("Xcode Black")
-            .background(Color.red)
-        }
-        Spacer()
-      }
+    ZoomableScrollView {
+      Image("Xcode Black")
+    }
   }
 }
 
